@@ -90,16 +90,17 @@ type azureKVKey struct {
 }
 
 type destinationRule struct {
-	PathRegex        string       `yaml:"path_regex"`
-	S3Bucket         string       `yaml:"s3_bucket"`
-	S3Prefix         string       `yaml:"s3_prefix"`
-	GCSBucket        string       `yaml:"gcs_bucket"`
-	GCSPrefix        string       `yaml:"gcs_prefix"`
-	VaultPath        string       `yaml:"vault_path"`
-	VaultAddress     string       `yaml:"vault_address"`
-	VaultKVMountName string       `yaml:"vault_kv_mount_name"`
-	VaultKVVersion   int          `yaml:"vault_kv_version"`
-	RecreationRule   creationRule `yaml:"recreation_rule,omitempty"`
+	PathRegex             string       `yaml:"path_regex"`
+	S3Bucket              string       `yaml:"s3_bucket"`
+	S3Prefix              string       `yaml:"s3_prefix"`
+	GCSBucket             string       `yaml:"gcs_bucket"`
+	GCSPrefix             string       `yaml:"gcs_prefix"`
+	VaultPath             string       `yaml:"vault_path"`
+	VaultAddress          string       `yaml:"vault_address"`
+	VaultKVMountName      string       `yaml:"vault_kv_mount_name"`
+	VaultKVVersion        int          `yaml:"vault_kv_version"`
+	VaultPathOmitFilename bool         `yaml:"vault_path_omit_filename"`
+	RecreationRule        creationRule `yaml:"recreation_rule,omitempty"`
 }
 
 type creationRule struct {
@@ -257,7 +258,7 @@ func parseDestinationRuleForFile(conf *configFile, filePath string, kmsEncryptio
 			dest = publish.NewGCSDestination(dRule.GCSBucket, dRule.GCSPrefix)
 		}
 		if dRule.VaultPath != "" {
-			dest = publish.NewVaultDestination(dRule.VaultAddress, dRule.VaultPath, dRule.VaultKVMountName, dRule.VaultKVVersion)
+			dest = publish.NewVaultDestination(dRule.VaultAddress, dRule.VaultPath, dRule.VaultKVMountName, dRule.VaultKVVersion, dRule.VaultPathOmitFilename)
 		}
 	}
 
@@ -271,6 +272,11 @@ func parseDestinationRuleForFile(conf *configFile, filePath string, kmsEncryptio
 }
 
 func parseCreationRuleForFile(conf *configFile, filePath string, kmsEncryptionContext map[string]*string) (*Config, error) {
+	// If config file doesn't contain CreationRules (it's empty or only contains DestionationRules), assume it does not exist
+	if conf.CreationRules == nil {
+		return nil, nil
+	}
+
 	var rule *creationRule
 
 	for _, r := range conf.CreationRules {

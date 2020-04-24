@@ -139,8 +139,25 @@ creation_rules:
     encrypted_suffix: _enc
     `)
 
-var sampleInvalidConfig = []byte(`
+var sampleConfigWithNoMatchingRules = []byte(`
 creation_rules:
+  - path_regex: notexisting
+    pgp: bar
+`)
+
+var sampleEmptyConfig = []byte(``)
+
+var sampleConfigWithEmptyCreationRules = []byte(`
+creation_rules:
+`)
+
+var sampleConfigWithOnlyDestinationRules = []byte(`
+destination_rules:
+  - path_regex: ""
+    s3_bucket: "foobar"
+    s3_prefix: "test/"
+    recreation_rule:
+      pgp: newpgp
 `)
 
 var sampleConfigWithDestinationRule = []byte(`
@@ -178,6 +195,9 @@ destination_rules:
     vault_kv_mount_name: "kv/"
     vault_kv_version: 1
     path_regex: "vault-v1/*"
+  - vault_path: "omit/"
+    vault_path_omit_filename: true
+    path_regex: "vault-omit-filename/*"
 `)
 
 func parseConfigFile(confBytes []byte, t *testing.T) *configFile {
@@ -248,9 +268,27 @@ func TestLoadConfigFileWithGroups(t *testing.T) {
 	assert.Equal(t, expected, conf)
 }
 
-func TestLoadInvalidConfigFile(t *testing.T) {
-	_, err := parseCreationRuleForFile(parseConfigFile(sampleInvalidConfig, t), "foobar2000", nil)
+func TestLoadConfigFileWithNoMatchingRules(t *testing.T) {
+	_, err := parseCreationRuleForFile(parseConfigFile(sampleConfigWithNoMatchingRules, t), "foobar2000", nil)
 	assert.NotNil(t, err)
+}
+
+func TestLoadEmptyConfigFile(t *testing.T) {
+	conf, err := parseCreationRuleForFile(parseConfigFile(sampleEmptyConfig, t), "foobar2000", nil)
+	assert.Nil(t, conf)
+	assert.Nil(t, err)
+}
+
+func TestLoadConfigFileWithEmptyCreationRules(t *testing.T) {
+	conf, err := parseCreationRuleForFile(parseConfigFile(sampleConfigWithEmptyCreationRules, t), "foobar2000", nil)
+	assert.Nil(t, conf)
+	assert.Nil(t, err)
+}
+
+func TestLoadConfigFileWithOnlyDestinationRules(t *testing.T) {
+	conf, err := parseCreationRuleForFile(parseConfigFile(sampleConfigWithOnlyDestinationRules, t), "foobar2000", nil)
+	assert.Nil(t, conf)
+	assert.Nil(t, err)
 }
 
 func TestKeyGroupsForFile(t *testing.T) {
@@ -328,4 +366,8 @@ func TestLoadConfigFileWithVaultDestinationRules(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, conf.Destination)
 	assert.Equal(t, "http://127.0.0.1:8200/v1/kv/barfoo/barfoo", conf.Destination.Path("barfoo"))
+	conf, err = parseDestinationRuleForFile(parseConfigFile(sampleConfigWithVaultDestinationRules, t), "vault-omit-filename/barfoo", nil)
+	assert.Nil(t, err)
+	assert.NotNil(t, conf.Destination)
+	assert.Equal(t, "http://127.0.0.1:8200/v1/secret/data/omit/", conf.Destination.Path("omit"))
 }
